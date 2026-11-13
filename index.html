@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>P25 Speed Rush (Pro) - ตัดสินใจไว พาพอร์ตทะลุปีที่ 3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box; margin: 0; padding: 0;
+      user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body, html {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #070b14; font-family: 'Prompt', sans-serif; color: #ffffff;
+    }
+    #app {
+      position: relative; width: 100%; max-width: 460px; height: 100%;
+      margin: 0 auto; overflow: hidden;
+      background: radial-gradient(circle at 50% 20%, #132c52 0%, #060913 100%);
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+
+    /* Red Danger Vignette Overlay (Urgency Visual Effect) */
+    #dangerVignette {
+      position: absolute; inset: 0; pointer-events: none; z-index: 15;
+      box-shadow: inset 0 0 0px rgba(239, 68, 68, 0);
+      transition: box-shadow 0.1s ease-out;
+    }
+    #dangerVignette.flash-warn {
+      box-shadow: inset 0 0 45px rgba(245, 158, 11, 0.45);
+    }
+    #dangerVignette.flash-crit {
+      box-shadow: inset 0 0 70px rgba(239, 68, 68, 0.75);
+    }
+
+    .screen {
+      position: absolute; inset: 0; z-index: 30;
+      background: rgba(6, 9, 19, 0.97); backdrop-filter: blur(8px);
+      padding: 24px 18px; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 18px;
+      overflow-y: auto;
+    }
+    .hidden { display: none !important; }
+
+    /* Top HUD */
+    .hud {
+      padding: 12px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1.5px solid rgba(56, 189, 248, 0.3);
+      display: flex; justify-content: space-between; align-items: center;
+      position: relative; z-index: 16;
+    }
+    .hud-box {
+      background: #1e293b; border: 1px solid rgba(255,255,255,0.12);
+      padding: 4px 12px; border-radius: 12px; text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .hud-box.danger-box {
+      border-color: #ef4444;
+      background: rgba(127, 29, 29, 0.6);
+    }
+    .hud-lbl { font-size: 10px; color: #94a3b8; }
+    .hud-val { font-size: 18px; font-weight: 900; color: #38bdf8; }
+    .timer-urgent { color: #ef4444 !important; animation: pulseFast 0.35s infinite; }
+    @keyframes pulseFast { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.16); } }
+
+    /* Time Progress Bar */
+    .time-bar-wrap { width: 100%; height: 7px; background: #1e293b; position: relative; z-index: 16; }
+    .time-bar-fill {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #ef4444, #f59e0b, #4ade80);
+      transition: width 0.08s linear;
+    }
+
+    /* Center Card Stage */
+    .stage {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 14px; position: relative; z-index: 16;
+    }
+    .combo-badge {
+      font-size: 14px; font-weight: 900; color: #facc15;
+      background: rgba(250, 204, 21, 0.15); border: 1px solid #facc15;
+      padding: 3px 14px; border-radius: 99px; margin-bottom: 10px;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .combo-badge.show { opacity: 1; }
+
+    .flash-card {
+      width: 100%; max-width: 345px; min-height: 225px;
+      background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+      border: 3px solid #38bdf8; border-radius: 28px;
+      padding: 22px 16px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+      transition: transform 0.12s, border-color 0.15s;
+    }
+    .card-emoji { font-size: 58px; margin-bottom: 8px; line-height: 1; }
+    .card-prompt { font-size: 22px; font-weight: 900; color: #ffffff; line-height: 1.25; }
+    .card-hint { font-size: 13px; color: #cbd5e1; margin-top: 8px; font-weight: 500; }
+
+    /* Feedback Stamp */
+    .stamp {
+      position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-8deg);
+      font-size: 30px; font-weight: 900; padding: 6px 18px; border-radius: 14px;
+      pointer-events: none; z-index: 20; opacity: 0; white-space: nowrap;
+    }
+    .stamp.ok {
+      border: 4px solid #4ade80; color: #4ade80; background: rgba(6, 78, 59, 0.92);
+      animation: stampPop 0.45s forwards;
+    }
+    .stamp.no {
+      border: 4px solid #f43f5e; color: #f43f5e; background: rgba(136, 19, 55, 0.92);
+      animation: stampPop 0.45s forwards;
+    }
+    @keyframes stampPop {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(1.5) rotate(-8deg); }
+      40% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-8deg); }
+      100% { opacity: 0; transform: translate(-50%, -65%) scale(0.95) rotate(-8deg); }
+    }
+
+    /* Bottom 2 Big Choice Buttons */
+    .controls {
+      padding: 12px 14px 22px 14px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      background: rgba(10, 15, 28, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative; z-index: 16;
+    }
+    .btn-choice {
+      padding: 18px 10px; border-radius: 20px; border: none;
+      font-family: 'Prompt', sans-serif; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: transform 0.08s;
+    }
+    .btn-choice:active { transform: scale(0.94); }
+    .btn-lapse {
+      background: linear-gradient(180deg, #e11d48 0%, #9f1239 100%);
+      border-bottom: 5px solid #881337; color: #fff;
+      box-shadow: 0 8px 20px rgba(225, 29, 72, 0.35);
+    }
+    .btn-safe {
+      background: linear-gradient(180deg, #10b981 0%, #047857 100%);
+      border-bottom: 5px solid #065f46; color: #fff;
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+    }
+    .btn-big-icon { font-size: 28px; line-height: 1; margin-bottom: 4px; }
+    .btn-big-text { font-size: 17px; font-weight: 900; }
+    .btn-small-sub { font-size: 11px; opacity: 0.85; }
+
+    /* Center Start / Restart Button */
+    .btn-center-action {
+      width: 100%; max-width: 320px; padding: 16px 20px;
+      border: 2.5px solid #fef08a; border-radius: 99px;
+      font-size: 19px; font-weight: 900; font-family: 'Prompt', sans-serif;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #0f172a; cursor: pointer;
+      box-shadow: 0 0 28px rgba(245, 158, 11, 0.6);
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn-center-action:active { transform: scale(0.96); }
+    .btn-center-action:disabled {
+      opacity: 0.4; cursor: not-allowed; pointer-events: none;
+    }
+
+    .info-panel {
+      width: 100%; background: rgba(15, 23, 42, 0.85);
+      border: 1.5px solid rgba(56, 189, 248, 0.25);
+      border-radius: 20px; padding: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- RED DANGER VIGNETTE OVERLAY -->
+  <div id="dangerVignette"></div>
+
+  <!-- TOP HUD -->
+  <div>
+    <div class="hud">
+      <div class="hud-box" id="timerBox">
+        <div class="hud-lbl">เวลาที่เหลือ</div>
+        <div id="hudTime" class="hud-val" style="color:#f59e0b;">45s</div>
+      </div>
+      <div class="hud-box">
+        <div class="hud-lbl">เป้าหมาย P25</div>
+        <div id="hudPer" class="hud-val" style="color:#4ade80;">90.0%</div>
+      </div>
+      <div class="hud-box">
+        <div class="hud-lbl">คะแนน</div>
+        <div id="hudScore" class="hud-val">0</div>
+      </div>
+    </div>
+    <div class="time-bar-wrap">
+      <div id="timeBar" class="time-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- CENTER STAGE -->
+  <div class="stage">
+    <div id="stampZone"></div>
+    <div id="comboBadge" class="combo-badge">🔥 COMBO x2</div>
+
+    <div class="flash-card" id="flashCard">
+      <div class="card-emoji" id="cardEmoji">💳</div>
+      <div class="card-prompt" id="cardPrompt">ผูกตัดบัตร Auto-Pay</div>
+      <div class="card-hint" id="cardHint">หักบัญชีอัตโนมัติทุกปี</div>
+    </div>
+  </div>
+
+  <!-- 2 BIG BUTTONS (AT BOTTOM) -->
+  <div class="controls">
+    <button class="btn-choice btn-lapse" onclick="answer(false)">
+      <span class="btn-big-icon">❌</span>
+      <span class="btn-big-text">เสี่ยงหลุด!</span>
+      <span class="btn-small-sub">ตายก่อนถึง P25</span>
+    </button>
+
+    <button class="btn-choice btn-safe" onclick="answer(true)">
+      <span class="btn-big-icon">✅</span>
+      <span class="btn-big-text">รอดถึง P25!</span>
+      <span class="btn-small-sub">อยู่ต่อปีที่ 3 (130%)</span>
+    </button>
+  </div>
+
+  <!-- SCREEN 1: START -->
+  <div id="startScreen" class="screen">
+    <div style="text-align:center;">
+      <span style="background:#f59e0b; color:#0f172a; padding:4px 14px; border-radius:99px; font-size:12px; font-weight:800;">
+        ⚡ คลังโจทย์ 48 ข้อ • มีเสียงเตือนบีบหัวใจ!
+      </span>
+      <h1 style="font-size:28px; font-weight:900; margin-top:8px; line-height:1.2;">
+        P25 SPEED RUSH
+      </h1>
+      <p style="font-size:13px; color:#94a3b8; margin-top:4px;">
+        อ่านให้ไว ระวังคำคล้าย! พาพอร์ต <b style="color:#4ade80;">รอดถึงปีที่ 3 (P25)</b>
+      </p>
+    </div>
+
+    <!-- CENTER START BUTTON -->
+    <button class="btn-center-action" onclick="startGame()">
+      🚀 กดตรงกลางเพื่อเริ่มเล่น!
+    </button>
+
+    <div class="info-panel">
+      <div style="font-size:13px; font-weight:800; color:#facc15; text-align:center; margin-bottom:8px;">
+        ⚠️ ระวังโจทย์คู่แฝด! อ่านคำขยายให้ดีก่อนกด:
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; background:rgba(16,185,129,0.15); border:1px solid #10b981; padding:8px 12px; border-radius:12px; margin-bottom:8px;">
+        <span style="font-size:24px;">✅</span>
+        <div style="font-size:12px;">
+          <b style="color:#4ade80;">ปุ่มขวาล่าง "รอดถึง P25!"</b><br>
+          เช่น <i>ส่งเอกสารก่อนวันที่ 25 / ใช้ APL พยุงเล่ม</i>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; background:rgba(225,29,72,0.15); border:1px solid #e11d48; padding:8px 12px; border-radius:12px;">
+        <span style="font-size:24px;">❌</span>
+        <div style="font-size:12px;">
+          <b style="color:#fb7185;">ปุ่มซ้ายล่าง "เสี่ยงหลุด!"</b><br>
+          เช่น <i>ส่งเอกสารหลังวันที่ 25 / ใช้ APL เกินมูลค่าเงินสด</i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: RESULT -->
+  <div id="endScreen" class="screen hidden">
+    <div style="text-align:center;">
+      <span style="background:#38bdf8; color:#0f172a; padding:4px 14px; border-radius:99px; font-size:12px; font-weight:800;">
+        🏁 หมดเวลา 45 วินาที!
+      </span>
+      <h1 style="font-size:25px; font-weight:900; margin-top:4px;">MISSION RESULT</h1>
+    </div>
+
+    <div style="width:100%; background:radial-gradient(circle at 50% 0%, #1e293b 0%, #090e1a 100%); border:2px solid #f59e0b; border-radius:22px; padding:14px; text-align:center;">
+      <div id="resIcon" style="font-size:44px;">🏆</div>
+      <div id="resTitle" style="font-size:19px; font-weight:900; color:#facc15;">
+        P25 Speed Champion!
+      </div>
+      <div style="display:inline-block; background:rgba(250,204,21,0.2); border:1px solid #facc15; color:#facc15; font-size:12px; font-weight:800; padding:3px 12px; border-radius:99px; margin:6px 0;">
+        P25: <span id="resPer">97.0%</span> • ตัวคูณโบนัส <span id="resMod">130%</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; background:rgba(11,19,36,0.8); padding:8px; border-radius:12px;">
+        <div>
+          <div style="font-size:10px; color:#94a3b8;">คะแนนรวม</div>
+          <div id="resScore" style="font-size:20px; font-weight:900; color:#38bdf8;">0</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:#94a3b8;">คอมโบสูงสุด</div>
+          <div id="resCombo" style="font-size:20px; font-weight:900; color:#f43f5e;">0x</div>
+        </div>
+      </div>
+
+      <div style="font-size:11px; color:#6ee7b7; background:rgba(16,185,129,0.15); border:1px dashed #10b981; padding:6px; border-radius:8px; font-weight:700;">
+        🎁 แสดงหน้าจอนี้ให้เจ้าหน้าที่บูธเพื่อรับของรางวัล!
+      </div>
+    </div>
+
+    <!-- CENTER RESTART BUTTON -->
+    <button id="restartBtn" class="btn-center-action" onclick="restartGame()">
+      🔄 เล่นใหม่อีกครั้ง (สุ่มโจทย์ใหม่)
+    </button>
+  </div>
+
+</div>
+
+<script>
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function playSound(freq, type, dur, delay=0, vol=0.16) {
+    if (!audioCtx) return;
+    try {
+      setTimeout(() => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        g.gain.setValueAtTime(vol, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + dur);
+      }, delay);
+    } catch(e) {}
+  }
+
+  // Rhythmic Countdown Tick Sound + Visual Vignette Pulse
+  function triggerUrgencyTick(isCritical) {
+    const freq = isCritical ? 1050 : 720;
+    const vol = isCritical ? 0.25 : 0.16;
+    playSound(freq, 'sine', 0.06, 0, vol);
+
+    // Subtle haptic tick on mobile during final 5 seconds
+    if (isCritical && navigator.vibrate) {
+      navigator.vibrate(25);
+    }
+
+    // Flash red/amber border around screen in sync with audio
+    const vig = document.getElementById('dangerVignette');
+    vig.className = isCritical ? 'flash-crit' : 'flash-warn';
+    setTimeout(() => {
+      vig.className = '';
+    }, 110);
+  }
+
+  // 48 CARDS: Featuring 12 Direct "Mirror Pairs"
+  const ALL_CARDS = [
+    // --- PAIR 1: Auto-Pay ---
+    { emoji: '💳', text: 'ผูกตัดบัตร Auto-Pay', hint: 'ชำระอัตโนมัติ ไม่ลืมจ่าย', isSafe: true },
+    { emoji: '💳', text: 'ผูก Auto-Pay แต่บัตรหมดอายุ', hint: 'ตัดบัญชีไม่ผ่าน เล่มขาดไม่รู้ตัว', isSafe: false },
+
+    // --- PAIR 2: APL ---
+    { emoji: '🛡️', text: 'ใช้ APL กู้เบี้ยอัตโนมัติ', hint: 'พยุงเล่มช่วงเงินตึงตัว', isSafe: true },
+    { emoji: '🛡️', text: 'ใช้ APL จนเกินมูลค่าเงินสด', hint: 'ดอกเบี้ยทบจนมูลค่าหมด เล่มขาด', isSafe: false },
+
+    // --- PAIR 3: Monthly Mode ---
+    { emoji: '📅', text: 'เปลี่ยนงวดเป็นรายเดือน', hint: 'แบ่งจ่ายเบาๆ สบายกระเป๋า', isSafe: true },
+    { emoji: '📅', text: 'เปลี่ยนรายเดือนแล้วทิ้งงวด 2', hint: 'จ่ายแค่งวดแรก ที่เหลือปล่อยขาด', isSafe: false },
+
+    // --- PAIR 4: Policy Review ---
+    { emoji: '📑', text: 'ทบทวนกรมธรรม์ทุกปี', hint: 'ย้ำสิทธิประโยชน์และลดหย่อนภาษี', isSafe: true },
+    { emoji: '📑', text: 'ทบทวนเล่มเก่าเพื่อยุให้ปิด', hint: 'ชวนเวนคืนเล่มเดิมไปเปิดเล่มใหม่', isSafe: false },
+
+    // --- PAIR 5: Health Plan Adjustment ---
+    { emoji: '⚖️', text: 'ปรับแผนลดเบี้ยสุขภาพ', hint: 'ลดภาระค่าใช้จ่าย แต่คงความคุ้มครอง', isSafe: true },
+    { emoji: '✂️', text: 'ยกเลิกสัญญาสุขภาพทิ้งหมด', hint: 'เสียประวัติสุขภาพเดิม คุ้มครองหาย', isSafe: false },
+
+    // --- PAIR 6: 24-Hour Reinstatement ---
+    { emoji: '⚡', text: 'ส่งต่ออายุภายใน 24 ชม.', hint: 'ดำเนินการไว เคสฟื้นทันที', isSafe: true },
+    { emoji: '⏳', text: 'โอนเงินแล้วส่งเรื่องเกิน 24 ชม.', hint: 'ล่าช้า เสี่ยงเคสตกหล่น', isSafe: false },
+
+    // --- PAIR 7: 25th Deadline ---
+    { emoji: '🗓️', text: 'ส่งเอกสารก่อนวันที่ 25', hint: 'ทันรอบปิดบัญชีประจำเดือน', isSafe: true },
+    { emoji: '🗓️', text: 'ส่งเอกสารตัวจริงหลังวันที่ 25', hint: 'ไม่ทันรอบปิดบัญชีเดือนนี้', isSafe: false },
+
+    // --- PAIR 8: Orphan Policies ---
+    { emoji: '🤝', text: 'เข้าพบดูแลเคสกำพร้าทันที', hint: 'สร้างความอุ่นใจให้ลูกค้าเก่า', isSafe: true },
+    { emoji: '🤷‍♂️', text: 'รับโอนเคสกำพร้าแล้วไม่เข้าพบ', hint: 'ลูกค้าไม่รู้จัก ปล่อยขาดต่อ', isSafe: false },
+
+    // --- PAIR 9: Reminder Timing ---
+    { emoji: '🔔', text: 'เตือนลูกค้าล่วงหน้า 30 วัน', hint: 'แจ้งเตือนก่อนครบกำหนดชำระ', isSafe: true },
+    { emoji: '🔕', text: 'เพิ่งโทรตามหลังเลยผ่อนผัน 31 วัน', hint: 'กรมธรรม์ขาดผลบังคับไปแล้ว', isSafe: false },
+
+    // --- PAIR 10: Cash Value Options ---
+    { emoji: '🔒', text: 'ใช้มูลค่าใช้เงินสำเร็จ (RPU)', hint: 'หยุดส่งเบี้ยถาวร แต่ยังคุ้มครองชีวิต', isSafe: true },
+    { emoji: '💸', text: 'เวนคืนกรมธรรม์เอาเงินสดออก', hint: 'สัญญาจบสิ้น ความคุ้มครองเป็น 0', isSafe: false },
+
+    // --- PAIR 11: Claims Service ---
+    { emoji: '🏥', text: 'ช่วยประสานงานเคลมไว', hint: 'ดูแลใกล้ชิดยามลูกค้าเจ็บป่วย', isSafe: true },
+    { emoji: '🙈', text: 'ลูกค้าเคลมติดปัญหาแล้วหายเงียบ', hint: 'ลูกค้าเสียความรู้สึก ยกเลิกทุกเล่ม', isSafe: false },
+
+    // --- PAIR 12: Persistency Target ---
+    { emoji: '🎯', text: 'รักษา P% ทะลุ 95%', hint: 'ปลดล็อกตัวคูณโบนัสสูงสุด 130%', isSafe: true },
+    { emoji: '📉', text: 'ประคอง P% ไว้แค่ 64%', hint: 'ตัวคูณโบนัสเหลือ 0% ทันที!', isSafe: false },
+
+    // --- ADDITIONAL 24 VARIETY CARDS ---
+    { emoji: '🎂', text: 'อวยพรวันเกิด & เยี่ยมเยียน', hint: 'รักษาความสัมพันธ์ตลอดปี', isSafe: true },
+    { emoji: '🧾', text: 'ส่งหนังสือรับรองลดหย่อนภาษี', hint: 'บริการไวช่วงต้นปี ลูกค้าประทับใจ', isSafe: true },
+    { emoji: '⏳', text: 'ใช้สิทธิขยายเวลา (ETI)', hint: 'คงทุนประกันชีวิตเต็มจำนวนเดิม', isSafe: true },
+    { emoji: '📱', text: 'สอนลูกค้าใช้แอปเช็กกรมธรรม์', hint: 'เข้าถึงข้อมูลสะดวก ตรวจสอบง่าย', isSafe: true },
+    { emoji: '👨‍👩‍👧', text: 'อัปเดตชื่อผู้รับประโยชน์', hint: 'ทบทวนสถานะครอบครัวสม่ำเสมอ', isSafe: true },
+    { emoji: '👔', text: 'ผจก. ประกบเคสเบี้ยใหญ่', hint: 'Joint Work ช่วยปิดเคสค้างชำระ', isSafe: true },
+    { emoji: '📋', text: 'ตรวจใบ PS02 ครบทุกหน้าก่อนส่ง', hint: 'เอกสารสมบูรณ์ อนุมัติต่ออายุไว', isSafe: true },
+    { emoji: '💬', text: 'ส่งสรุปความคุ้มครองทาง LINE', hint: 'ลูกค้าเห็นภาพชัดว่าเล่มนี้คุ้มครองอะไรบ้าง', isSafe: true },
+    { emoji: '🏦', text: 'กู้เงินกรมธรรม์แทนการเวนคืน', hint: 'ได้เงินสดหมุนเวียน แต่เล่มยังอยู่', isSafe: true },
+    { emoji: '🩺', text: 'ย้ายสู่แผนสุขภาพเหมาจ่าย', hint: 'ปรับปรุงความคุ้มครองให้ทันสมัย', isSafe: true },
+    { emoji: '📊', text: 'เช็กรายงาน Due List ทุกต้นเดือน', hint: 'วางแผนติดตามลูกค้าล่วงหน้า', isSafe: true },
+    { emoji: '🌟', text: 'ดูแลต่อเนื่องจาก P19 สู่ P25', hint: 'รักษาฐานปีที่ 3 รับโบนัส APB/MPB', isSafe: true },
+
+    { emoji: '💥', text: 'ปล่อยขาดเกิน 60 วัน', hint: 'ไม่ติดตามช่วงผ่อนผัน', isSafe: false },
+    { emoji: '📵', text: 'เบอร์ลูกค้าเปลี่ยนไม่ตามอัปเดต', hint: 'ขาดการติดต่อแจ้งเตือนเบี้ย', isSafe: false },
+    { emoji: '😴', text: 'ผ่าน P19 แล้วชะล่าใจเลิกตาม', hint: 'พอร์ตพังก่อนเข้าปีที่ 3 (P25)', isSafe: false },
+    { emoji: '🗣️', text: 'ขายแบบยัดเยียดเกินกำลังจ่าย', hint: 'เบี้ยสูงเกินรายได้ ส่งต่อไม่ไหว', isSafe: false },
+    { emoji: '📄', text: 'ส่งใบ PS02 ขาดลายเซ็นลูกค้า', hint: 'เอกสารตีกลับ เสียเวลาต่ออายุ', isSafe: false },
+    { emoji: '🏃', text: 'เน้นหาแต่เคสใหม่ทิ้งเคสเก่า', hint: 'ฐานรั่ว โบนัส APB / MPB หายวับ', isSafe: false },
+    { emoji: '❌', text: 'ลูกค้าขอเวนคืนก็เซ็นให้ทันที', hint: 'ไม่เสนอทางเลือกพยุงสิทธิ์ 5 ขั้น', isSafe: false },
+    { emoji: '🔕', text: 'ไม่อ่านรายงาน Due List ประจำเดือน', hint: 'ไม่รู้ว่ามีลูกค้าใกล้ครบกำหนด', isSafe: false },
+    { emoji: '📧', text: 'ส่งอีเมลขอเปลี่ยนผู้ดูแลรวมหลายเล่ม', hint: 'ผิดกฎ (ต้องส่ง 1 กรมธรรม์ / 1 เมล)', isSafe: false },
+    { emoji: '🤷', text: 'ลูกค้าบ่นว่าเบี้ยแพงก็เงียบใส่', hint: 'ไม่เสนอทางเลือกปรับลดทุนหลัก', isSafe: false },
+    { emoji: '🕒', text: 'รอวันสุดท้ายของเดือนค่อยส่งเอกสาร', hint: 'เสี่ยงติดวันหยุด เอกสารไม่ทันรอบ', isSafe: false },
+    { emoji: '💸', text: 'ชวนลูกค้ากู้เงินในเล่มไปใช้ฟุ่มเฟือย', hint: 'สร้างภาระดอกเบี้ย เสี่ยงเล่มขาดในอนาคต', isSafe: false }
+  ];
+
+  let deck = [];
+  let isPlaying = false;
+  let timeLeft = 45.0;
+  let score = 0;
+  let combo = 0;
+  let maxCombo = 0;
+  let perRate = 90.0;
+  let currentCard = null;
+  let lastTime = 0;
+  let tickAccumulator = 0; // Tracks rhythmic audio interval
+
+  function refillDeck() {
+    deck = [...ALL_CARDS];
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+  }
+
+  function nextCard() {
+    if (deck.length === 0) {
+      refillDeck();
+    }
+    currentCard = deck.pop();
+
+    document.getElementById('cardEmoji').innerText = currentCard.emoji;
+    document.getElementById('cardPrompt').innerText = currentCard.text;
+    document.getElementById('cardHint').innerText = currentCard.hint;
+
+    const card = document.getElementById('flashCard');
+    card.style.transform = 'scale(0.95)';
+    setTimeout(() => card.style.transform = 'scale(1)', 60);
+  }
+
+  function showStamp(isCorrect) {
+    const zone = document.getElementById('stampZone');
+    zone.innerHTML = isCorrect
+      ? `<div class="stamp ok">ถูกต้อง! +${100 + combo * 20}</div>`
+      : `<div class="stamp no">โดนหลอก! -2.5%</div>`;
+  }
+
+  function answer(userSaidSafe) {
+    if (!isPlaying || !currentCard) return;
+
+    if (userSaidSafe === currentCard.isSafe) {
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+      score += 100 + (combo * 20);
+      perRate = Math.min(99.5, perRate + 0.8);
+
+      playSound(523.25, 'triangle', 0.08, 0, 0.18);
+      playSound(783.99, 'triangle', 0.12, 50, 0.2);
+      showStamp(true);
+    } else {
+      combo = 0;
+      perRate = Math.max(60.0, perRate - 2.5);
+
+      playSound(170, 'sawtooth', 0.22, 0, 0.28);
+      if (navigator.vibrate) navigator.vibrate(90);
+      showStamp(false);
+    }
+
+    updateHUD();
+    nextCard();
+  }
+
+  function updateHUD() {
+    const tEl = document.getElementById('hudTime');
+    const tBox = document.getElementById('timerBox');
+    tEl.innerText = Math.ceil(timeLeft) + 's';
+
+    if (timeLeft <= 15) {
+      tEl.classList.add('timer-urgent');
+      tBox.classList.add('danger-box');
+    } else {
+      tEl.classList.remove('timer-urgent');
+      tBox.classList.remove('danger-box');
+    }
+
+    document.getElementById('timeBar').style.width = Math.max(0, (timeLeft / 45) * 100) + '%';
+
+    const pEl = document.getElementById('hudPer');
+    pEl.innerText = perRate.toFixed(1) + '%';
+    pEl.style.color = perRate >= 95 ? '#facc15' : (perRate >= 85 ? '#4ade80' : '#fb7185');
+
+    document.getElementById('hudScore').innerText = score.toLocaleString();
+
+    const cBadge = document.getElementById('comboBadge');
+    if (combo >= 2) {
+      cBadge.innerText = `🔥 COMBO x${combo}`;
+      cBadge.classList.add('show');
+    } else {
+      cBadge.classList.remove('show');
+    }
+  }
+
+  function tick(now) {
+    if (!isPlaying) return;
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    timeLeft -= dt;
+
+    // Rhythmic Audio Tension System (Accelerates as time runs out!)
+    if (timeLeft > 0 && timeLeft <= 15.0) {
+      tickAccumulator += dt;
+      // Determine current tempo interval based on remaining seconds
+      let interval = 1.0; // 15s -> 10s: every 1.0s
+      let isCritical = false;
+
+      if (timeLeft <= 5.0) {
+        interval = 0.25; // Final 5s: rapid 4x per second!
+        isCritical = true;
+      } else if (timeLeft <= 10.0) {
+        interval = 0.5;  // 10s -> 5s: 2x per second
+        isCritical = true;
+      }
+
+      if (tickAccumulator >= interval) {
+        tickAccumulator %= interval;
+        triggerUrgencyTick(isCritical);
+      }
+    }
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      document.getElementById('dangerVignette').className = '';
+      updateHUD();
+      endGame();
+      return;
+    }
+
+    updateHUD();
+    requestAnimationFrame(tick);
+  }
+
+  function startGame() {
+    initAudio();
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('endScreen').classList.add('hidden');
+    document.getElementById('dangerVignette').className = '';
+
+    isPlaying = true;
+    timeLeft = 45.0;
+    tickAccumulator = 0;
+    score = 0;
+    combo = 0;
+    maxCombo = 0;
+    perRate = 90.0;
+
+    refillDeck();
+    nextCard();
+    updateHUD();
+    lastTime = performance.now();
+    requestAnimationFrame(tick);
+  }
+
+  function endGame() {
+    isPlaying = false;
+    document.getElementById('endScreen').classList.remove('hidden');
+
+    // Final buzzer sound when time hits 0
+    playSound(300, 'sawtooth', 0.35, 0, 0.25);
+
+    const restartBtn = document.getElementById('restartBtn');
+    restartBtn.disabled = true;
+    setTimeout(() => { restartBtn.disabled = false; }, 800);
+
+    document.getElementById('resScore').innerText = score.toLocaleString();
+    document.getElementById('resCombo').innerText = maxCombo + 'x';
+    document.getElementById('resPer').innerText = perRate.toFixed(1) + '%';
+
+    let mod = '100%';
+    if (perRate >= 95) mod = '130%';
+    else if (perRate >= 90) mod = '125%';
+    else if (perRate >= 85) mod = '115%';
+    document.getElementById('resMod').innerText = mod;
+
+    const iconEl = document.getElementById('resIcon');
+    const titleEl = document.getElementById('resTitle');
+    if (perRate >= 95) {
+      iconEl.innerText = '👑';
+      titleEl.innerText = 'P25 Speed Champion!';
+      playSound(587.33, 'triangle', 0.1, 150, 0.2);
+      playSound(880, 'triangle', 0.25, 250, 0.25);
+    } else {
+      iconEl.innerText = '🏅';
+      titleEl.innerText = 'P25 Fast Learner!';
+    }
+  }
+
+  function restartGame() {
+    document.getElementById('endScreen').classList.add('hidden');
+    document.getElementById('startScreen').classList.remove('hidden');
+  }
+</script>
+
+</body>
+</html>
